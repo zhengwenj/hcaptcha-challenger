@@ -136,6 +136,12 @@ class AgentConfig(BaseSettings):
         "and use Camoufox(humanize=True)",
     )
 
+    DISABLE_HSW_REVERSE: bool = Field(
+        default=False,
+        description="Force disable HSW reverse engineering and fallback to visual recognition. "
+        "Useful for testing the fallback branch when HSW decoding fails.",
+    )
+
     MAX_CRUMB_COUNT: int = Field(
         default=2,
         description="""
@@ -740,6 +746,13 @@ class AgentV:
             # Content-Type: stream
             try:
                 raw_data = await response.body()
+
+                # [DEBUG] Force fallback to visual recognition for testing
+                if self.config.DISABLE_HSW_REVERSE:
+                    logger.warning("HSW reverse disabled by config, fallback to regular processing")
+                    self._captcha_payload_queue.put_nowait(None)
+                    return
+
                 has_hsw = await self.page.evaluate(
                     """
                     () => {
